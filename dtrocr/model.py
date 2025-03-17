@@ -12,7 +12,7 @@ from transformers.models.gpt2.modeling_gpt2 import GPT2Block, GPT2Model
 from transformers.generation.configuration_utils import GenerationConfig
 from transformers.modeling_attn_mask_utils import _prepare_4d_causal_attention_mask_for_sdpa
 from transformers.generation.beam_search import BeamScorer, BeamSearchScorer
-from transformers import Florence2ForConditionalGeneration
+
 from transformers.generation.stopping_criteria import (
     EosTokenCriteria,
     MaxLengthCriteria,
@@ -25,11 +25,12 @@ from transformers.generation.stopping_criteria import (
 class DTrOCRModel(nn.Module):
     def __init__(self, config: DTrOCRConfig):
         super().__init__()
-        # Load Florence-2 model and extract the vision tower
-        florence_model = Florence2ForConditionalGeneration.from_pretrained(
-            config.florence_hf_model, trust_remote_code=True
-        )
-        self.vision_encoder = florence_model.vision_tower
+        # # Load Florence-2 model and extract the vision tower
+        # florence_model = Florence2ForConditionalGeneration.from_pretrained(
+        #     config.florence_hf_model, trust_remote_code=True
+        # )
+        # self.vision_encoder = florence_model.vision_tower
+        self.patch_embeddings = ViTPatchEmbeddings(config)
         self.token_embedding = nn.Embedding(config.vocab_size, config.hidden_size)
         self.positional_embedding = nn.Embedding(config.max_position_embeddings, config.hidden_size)
 
@@ -38,9 +39,9 @@ class DTrOCRModel(nn.Module):
         self.layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_epsilon)
 
         # Projection layer to align Florence-2's vision output with hidden_size (768)
-        self.vision_projection = nn.Linear(
-            florence_model.config.vision_config.hidden_size, config.hidden_size
-        ) if florence_model.config.vision_config.hidden_size != config.hidden_size else nn.Identity()
+        # self.vision_projection = nn.Linear(
+        #     florence_model.config.vision_config.hidden_size, config.hidden_size
+        # ) if florence_model.config.vision_config.hidden_size != config.hidden_size else nn.Identity()
 
         self._attn_implementation = config._attn_implementation
 
@@ -66,13 +67,15 @@ class DTrOCRModel(nn.Module):
         else:
             past_length = past_key_values[0][0].size(-2)
 
-       # Get patch embeddings from Florence-2 vision encoder
-        if past_length == 0:
-            vision_outputs = self.vision_encoder(pixel_values)
-            patch_embeddings = vision_outputs[0]  # Shape: [batch_size, num_patches, vision_hidden_size]
-            patch_embeddings = self.vision_projection(patch_embeddings)  # Project to config.hidden_size (768)
-        else:
-            patch_embeddings = None
+    #    # Get patch embeddings from Florence-2 vision encoder
+    #     if past_length == 0:
+    #         vision_outputs = self.vision_encoder(pixel_values)
+    #         patch_embeddings = vision_outputs[0]  # Shape: [batch_size, num_patches, vision_hidden_size]
+    #         patch_embeddings = self.vision_projection(patch_embeddings)  # Project to config.hidden_size (768)
+    #     else:
+    #         patch_embeddings = None
+        patch_embeddings = self.patch_embeddings(pixel_values) if past_length == 0 else None
+
         token_embeddings = self.token_embedding(input_ids)
 
         if patch_embeddings is not None:
