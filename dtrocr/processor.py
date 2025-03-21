@@ -12,7 +12,6 @@ class DTrOCRProcessor:
         self.processor = AutoProcessor.from_pretrained(
             config.florence_hf_model,
             trust_remote_code=True,
-            size={"height": config.image_size[0], "width": config.image_size[1]}
         )
         self.tokeniser = GPT2Tokenizer.from_pretrained(
             config.gpt2_hf_model,
@@ -48,7 +47,7 @@ class DTrOCRProcessor:
         ) if images is not None else None
 
         return DTrOCRProcessorOutput(
-            pixel_values=image_inputs["pixel_values"] if images is not None else None,
+            pixel_values=image_inputs.pixel_values[0] if images is not None else None,
             input_ids=text_inputs['input_ids'] if texts is not None else None,
             attention_mask=text_inputs['attention_mask'] if texts is not None else None,
             labels=text_inputs['input_ids'] if texts is not None and return_labels else None
