@@ -38,12 +38,13 @@ class DTrOCRProcessor:
         *args,
         **kwargs
     ) -> DTrOCRProcessorOutput:
+        prompt = "<OD>"
         text_inputs = self.tokeniser(
             texts, padding=padding, *args, **kwargs
         ) if texts is not None else None
 
         image_inputs = self.processor(
-            images, input_data_format=input_data_format, *args, **kwargs
+            text=prompt, images=images, return_tensors="pt"
         ) if images is not None else None
 
         return DTrOCRProcessorOutput(
